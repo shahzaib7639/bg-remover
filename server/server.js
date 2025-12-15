@@ -1,24 +1,19 @@
-import mongoose from "mongoose";
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import connectDB from "./configs/mongodb.js";
+import userRouter from "./routes/userRoutes.js";
 
-let isConnected = false;
+//App config
+const PORT = process.env.PORT || 4000;
+const app = express();
+await connectDB();
 
-const connectDB = async () => {
-  if (isConnected) {
-    console.log("MongoDB already connected");
-    return;
-  }
+//Intialize Middlewares
+app.use(express.json());
+app.use(cors());
 
-  try {
-    const db = await mongoose.connect(process.env.MONGODB_URI, {
-      dbName: "bgremover",
-    });
-
-    isConnected = db.connections[0].readyState;
-    console.log("MongoDB Connected");
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    throw error;
-  }
-};
-
-export default connectDB;
+//Api routes
+app.get("/", (req, res) => res.send("API Working"));
+app.use('/api/user',userRouter)
+app.listen(PORT, () => console.log("server Running on port" + PORT));
