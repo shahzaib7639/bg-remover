@@ -1,17 +1,24 @@
-import "dotenv/config";
-import express from "express";
-import cors from "cors";
-import connectDB from "./configs/mongodb.js";
+import mongoose from "mongoose";
 
-//App config
-const PORT = process.env.PORT || 4000;
-const app = express();
-await connectDB();
+let isConnected = false;
 
-//Intialize Middlewares
-app.use(express.json());
-app.use(cors());
+const connectDB = async () => {
+  if (isConnected) {
+    console.log("MongoDB already connected");
+    return;
+  }
 
-//Api routes
-app.get("/", (req, res) => res.send("API Working"));
-app.listen(PORT, () => console.log("server Running on port" + PORT));
+  try {
+    const db = await mongoose.connect(process.env.MONGODB_URI, {
+      dbName: "bgremover",
+    });
+
+    isConnected = db.connections[0].readyState;
+    console.log("MongoDB Connected");
+  } catch (error) {
+    console.error("MongoDB connection error:", error);
+    throw error;
+  }
+};
+
+export default connectDB;
