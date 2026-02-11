@@ -1,11 +1,11 @@
 import React from "react";
 import { testimonialsData } from "../assets/assets";
 
-const Testimonails = () => {
+const Testimonials = () => {
   return (
     <div>
       {/* Title */}
-      <h1 className="text-center text-2xl md:text-3xl lg:text-4xl mt-4 font-samibold bg-gradient-to-r from-gray-900 to-gray-400 bg-clip-text text-transparent py-5">
+      <h1 className="text-center text-2xl md:text-3xl lg:text-4xl mt-4 font-semibold bg-gradient-to-r from-gray-900 to-gray-400 bg-clip-text text-transparent py-5">
         Customer Testimonials
       </h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-4xl mx-auto px-4 py-8">
@@ -15,12 +15,16 @@ const Testimonails = () => {
             key={index}
           >
             <p className="text-4xl text-gray-500">”</p>
-            <p className="text-small text-gray-500">{item.text}</p>
+            <p className="text-sm text-gray-500">
+              I've been using bg.removal for nearly two years, primarily for
+              Instagram, and it has been incredibly user-friendly, making my
+              work much easier.
+            </p>
             <div className="flex items-center gap-3 mt-5">
-              <img className="w-9 rounded-full " src={item.image} alt="" />
+              <img className="w-9 rounded-full" src={item.image} alt="" />
               <div>
                 <p>{item.author}</p>
-                <p className="text-sm text-gray-600">{item.jobTitle}</p>
+                <p className="text-ms text-gray-600">{item.job}</p>
               </div>
             </div>
           </div>
@@ -30,4 +34,4 @@ const Testimonails = () => {
   );
 };
 
-export default Testimonails;
+export default Testimonials;

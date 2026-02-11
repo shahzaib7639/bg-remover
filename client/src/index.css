@@ -1,12 +1,13 @@
-@import url("https://fonts.googleapis.com/css2?family=Momo+Signature&family=Outfit:wght@100..900&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://fonts.googleapis.com/css2?family=Momo+Signature&family=Outfit:wght@100..900&display=swap");
+
 * {
-  font-family: outfit;
+  font-family: Outfit;
 }
+
 .slider {
   -webkit-appearance: none;
   height: 100%;
@@ -16,11 +17,12 @@
   appearance: none;
   width: 30px;
   min-height: 30px;
-  background-image: url(../public/slide_icon.svg);
+  background-image: url(./assets/slide_icon.svg);
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
 }
+
 .bg-layer {
-  background-image: url(../public/bg_layer.png);
+  background-image: url(./assets/bg_layer.png);
 }

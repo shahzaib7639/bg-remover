@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloco de Notas Online - Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@400;600&family=Roboto:wght@400;700&display=swap');
+
+    body { background-color: transparent; font-family: 'Inter', sans-serif; transition: background 0.3s; }
+    .dark-theme { background-color: #1a1a1a !important; }
+
+    .nav-item { position: relative; }
+    .dropdown { display: none; position: absolute; top: 100%; left: 0; background: white; min-width: 180px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); z-index: 50; border-radius: 4px; border: 1px solid #ddd; }
+    .nav-item:hover .dropdown { display: block; }
+    .dropdown button { width: 100%; text-align: left; padding: 8px 15px; color: #333; font-size: 14px; border-bottom: 1px solid #eee; }
+    .dropdown button:hover { background: #f0f0f0; }
+
+    /* Ícones da toolbar (Tailwind CDN não processa @apply no <style>; CSS equivalente) */
+    .toolbar-icon{
+      padding: 0.5rem;
+      border-radius: 0.25rem;
+      color: #374151;
+      font-size: 1.125rem;
+      cursor: pointer;
+      transition: all .15s ease;
+      margin-left: 1.5px;
+      margin-right: 1.5px;
+    }
+    .toolbar-icon:hover{ background: #e5e7eb; }
+
+    #main-editor-window { display: flex; background: white; height: 75vh; overflow: hidden; position: relative; border: 1px solid #ddd; border-top: none; }
+    #line-numbers { width: 45px; background: #f0f0f0; color: #999; text-align: right; padding-right: 10px; padding-top: 10px; font-family: monospace; border-right: 1px solid #ddd; overflow: hidden; user-select: none; }
+
+    #editor { flex: 1; padding: 10px; outline: none; overflow-y: auto; color: black; min-height: 100%; transform-origin: top left; position: relative; }
+
+    /* Placeholder (sempre à esquerda) */
+    #editor:empty:before {
+      content: attr(data-placeholder);
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: rgba(0,0,0,0.3);
+      pointer-events: none;
+    }
+
+    /* Ajuste do Select para evitar sobreposição da seta */
+    .custom-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 0.35rem center;
+      background-size: 0.85em;
+      padding-right: 1.6rem !important;
+    }
+    select option { background: white; color: black; }
+
+    /* Fix: listas (Tailwind reset remove marcadores) */
+    #editor ul {
+      list-style-type: disc;
+      list-style-position: outside;
+      margin-left: 1.25rem;
+      padding-left: 1.25rem;
+    }
+    #editor ol {
+      list-style-type: decimal;
+      list-style-position: outside;
+      margin-left: 1.25rem;
+      padding-left: 1.25rem;
+    }
+    #editor ul ul { list-style-type: circle; }
+    #editor ol ol { list-style-type: lower-alpha; }
+
+    /* Visibilidade: Link / Citação / Código dentro do editor */
+    #editor a{
+      color:#2563eb;
+      text-decoration: underline;
+    }
+    #editor blockquote{
+      border-left: 3px solid #d1d5db;
+      padding-left: 12px;
+      margin: 8px 0;
+      color: #374151;
+    }
+    #editor pre{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      background:#f3f4f6;
+      padding:10px;
+      margin:8px 0;
+      border-radius:6px;
+      white-space: pre-wrap;
+  }
+/* ===== Mobile UI (make it like first code) ===== */
+.mobile-toolbar { display: none; }
+.mobile-overlay { display: none; }
+.mobile-menu { display: block; }
+
+@media (max-width: 767px) {
+  /* remove extra padding/rounded on mobile like first code full screen */
+  body { padding: 0 !important; }
+  .max-w-6xl { max-width: 100% !important; border-radius: 0 !important; }
+
+  /* hide desktop menubar + desktop toolbar on mobile */
+  .desktop-menubar { display: none !important; }
+  .desktop-toolbar { display: none !important; }
+
+  /* show mobile toolbar */
+  .mobile-toolbar {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    height: 52px;
+    padding: 8px 10px;
+    background: #f3f4f6;
+    border-bottom: 1px solid #d1d5db;
+  }
+
+  /* editor takes full height */
+  #main-editor-window {
+    height: calc(100vh - 52px - 24px) !important; /* mobile toolbar + statusbar */
+  }
+
+  /* mobile drawer */
+  .mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    z-index: 150;
+  }
+
+  .mobile-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 85%;
+    max-width: 320px;
+    height: 100%;
+    background: #ffffff;
+    z-index: 200;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    padding: 16px;
+    border-right: 1px solid #e5e7eb;
+  }
+  .mobile-menu.open { transform: translateX(0); }
+  .mobile-overlay.open { display: block; }
+
+  /* mobile menu buttons */
+  .mobile-menu h4 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-top: 14px;
+    margin-bottom: 8px;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+  }
+  .mobile-menu .m-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+    color: #111827;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .mobile-menu .m-btn:active { opacity: .85; }
+}
+
+/* mobile toolbar icon style (reuse your toolbar-icon look) */
+.mobile-toolbar .m-ic {
+  padding: .5rem;
+  border-radius: .25rem;
+  color: #374151;
+  font-size: 1.125rem;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.mobile-toolbar .m-ic:hover { background: #e5e7eb; }
+body.no-scroll { overflow: hidden; }
+
+  </style>
+</head>
+
+<body class="p-4 flex flex-col items-center">
+
+  <div class="w-full max-w-6xl rounded-lg shadow-2xl overflow-hidden bg-[#F9F9F9]">
+
+    <div class="desktop-menubar bg-white px-4 py-1 flex justify-between items-center border-b border-gray-300">
+      <div class="flex gap-6 text-gray-700 font-medium text-sm">
+        <div class="nav-item cursor-pointer py-1">Arquivo
+          <div class="dropdown">
+            <button onclick="newDoc()">Novo</button>
+            <button onclick="document.getElementById('fileInput').click()">Abrir</button>
+            <button onclick="saveDoc()">Salvar</button>
+            <button onclick="saveDoc()">Salvar como...</button>
+            <button onclick="window.print()">Imprimir</button>
+          </div>
+        </div>
+
+        <div class="nav-item cursor-pointer py-1">Editar
+          <div class="dropdown">
+            <button onclick="exec('undo')">Desfazer</button>
+            <button onclick="exec('redo')">Refazer</button>
+            <button onclick="exec('cut')">Recortar</button>
+            <button onclick="copyToClipboard()">Copiar</button>
+            <button onclick="exec('paste')">Colar</button>
+            <button onclick="exec('delete')">Deletar</button>
+            <button onclick="exec('selectAll')">Selecionar Tudo</button>
+            <button onclick="findReplace()">Localizar e Substituir</button>
+          </div>
+        </div>
+
+        <div class="nav-item cursor-pointer py-1">Exibir
+          <div class="dropdown">
+            <button onclick="toggleDark()">Modo Escuro</button>
+            <button onclick="changeZoom(0.1)">Aumentar Zoom</button>
+            <button onclick="changeZoom(-0.1)">Diminuir Zoom</button>
+            <button onclick="exec('insertHorizontalRule')">Quebra de Linha</button>
+            <button onclick="toggleLines()">Números de Linha</button>
+            <button onclick="toggleFull()">Tela Cheia</button>
+          </div>
+        </div>
+
+        <div class="nav-item cursor-pointer py-1">Ajuda
+          <div class="dropdown">
+            <button onclick="alert('Online Notepad Pro v2.0 - 2026')">Sobre</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-x-2">
+<button onclick="toggleDark()"
+        class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:opacity-90"
+        title="Modo Escuro">
+  <i class="fas fa-moon mr-1"></i> MODO ESCURO
+</button>
+        <button onclick="saveDoc()"
+                class="bg-emerald-600 text-white px-3 py-1 rounded text-xs hover:bg-emerald-700"
+                title="Download">
+          <i class="fas fa-download mr-1"></i> DOWNLOAD
+        </button>
+
+        <button onclick="clearAllText()"
+                class="bg-[#0078D7] text-white px-3 py-1 rounded text-xs hover:opacity-90"
+                title="Limpar todo o texto">
+          <i class="fas fa-trash mr-1"></i> LIMPAR
+        </button>
+      </div>
+    </div>
+<!-- Mobile Toolbar (ONLY MOBILE) -->
+<div class="mobile-toolbar">
+  <i class="fas fa-bars m-ic" title="Menu" onclick="openMobileMenu()"></i>
+
+  <i class="fas fa-undo m-ic" title="Desfazer" onmousedown="event.preventDefault(); exec('undo')"></i>
+  <i class="fas fa-redo m-ic" title="Refazer" onmousedown="event.preventDefault(); exec('redo')"></i>
+
+  <span style="width:1px;height:22px;background:#d1d5db;margin:0 4px;"></span>
+
+  <i class="fas fa-bold m-ic" title="Negrito" onmousedown="event.preventDefault(); exec('bold')"></i>
+  <i class="fas fa-italic m-ic" title="Itálico" onmousedown="event.preventDefault(); exec('italic')"></i>
+
+  <div style="flex:1;"></div>
+
+  <button onclick="saveDoc()" class="bg-emerald-600 text-white px-3 py-2 rounded text-xs">
+    <i class="fas fa-download mr-1"></i> DOWNLOAD
+  </button>
+</div>
+
+    <div class="desktop-toolbar bg-[#f3f4f6] p-2 flex flex-wrap items-center gap-1 border-b border-gray-300">
+
+
+      <div class="flex items-center gap-2">
+        <i class="fas fa-file-alt toolbar-icon" title="Novo" onmousedown="event.preventDefault(); newDoc()"></i>
+        <i class="fas fa-folder-open toolbar-icon" title="Abrir arquivo" onmousedown="event.preventDefault(); document.getElementById('fileInput').click()"></i>
+        <i class="fas fa-print toolbar-icon" title="Imprimir" onmousedown="event.preventDefault(); window.print()"></i>
+        <i class="fas fa-copy toolbar-icon" title="Copiar" onmousedown="event.preventDefault(); copyToClipboard()"></i>
+      </div>
+
+      <div class="h-6 w-[1px] bg-gray-400 mx-1"></div>
+
+      <div class="flex items-center gap-2">
+        <i class="fas fa-undo toolbar-icon" title="Desfazer" onmousedown="event.preventDefault(); exec('undo')"></i>
+        <i class="fas fa-redo toolbar-icon" title="Refazer" onmousedown="event.preventDefault(); exec('redo')"></i>
+      </div>
+
+      <div class="h-6 w-[1px] bg-gray-400 mx-1"></div>
+
+      <div class="flex items-center gap-2">
+        <i class="fas fa-bold toolbar-icon" title="Negrito" onmousedown="event.preventDefault(); exec('bold')"></i>
+        <i class="fas fa-italic toolbar-icon" title="Itálico" onmousedown="event.preventDefault(); exec('italic')"></i>
+        <i class="fas fa-underline toolbar-icon" title="Sublinhado" onmousedown="event.preventDefault(); exec('underline')"></i>
+        <i class="fas fa-strikethrough toolbar-icon" title="Tachado" onmousedown="event.preventDefault(); exec('strikeThrough')"></i>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <div class="flex flex-col items-center">
+          <span class="text-[10px] font-bold">Cor</span>
+          <input type="color"
+                 title="Cor do texto"
+                 onchange="exec('foreColor', this.value)"
+                 class="w-6 h-4 cursor-pointer">
+        </div>
+
+        <div class="flex flex-col items-center">
+          <span class="text-[10px] font-bold">Fundo</span>
+          <input type="color"
+                 title="Cor de destaque"
+                 value="#ffff00"
+                 onchange="exec('hiliteColor', this.value)"
+                 class="w-6 h-4 cursor-pointer">
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <i class="fas fa-list-ul toolbar-icon" title="Lista com marcadores" onmousedown="event.preventDefault(); exec('insertUnorderedList')"></i>
+        <i class="fas fa-list-ol toolbar-icon" title="Lista numerada" onmousedown="event.preventDefault(); exec('insertOrderedList')"></i>
+        <i class="fas fa-quote-right toolbar-icon" title="Citação" onmousedown="event.preventDefault(); applyBlock('blockquote')"></i>
+        <i class="fas fa-link toolbar-icon" title="Inserir link" onmousedown="event.preventDefault(); addLink()"></i>
+        <i class="fas fa-code toolbar-icon" title="Bloco de código" onmousedown="event.preventDefault(); applyBlock('pre')"></i>
+      </div>
+
+      <div class="h-6 w-[1px] bg-gray-400 mx-1"></div>
+
+      <select onchange="exec('fontName', this.value)" class="custom-select p-1 border rounded text-sm bg-white text-black w-32" title="Fonte">
+        <option value="Arial">Arial</option>
+        <option value="Andale Mono">Andale Mono</option>
+        <option value="Arial Black">Arial Black</option>
+        <option value="Book Antiqua">Book Antiqua</option>
+        <option value="Comic Sans MS">Comic Sans MS</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Helvetica">Helvetica</option>
+        <option value="Impact">Impact</option>
+        <option value="Symbol">Symbol</option>
+        <option value="Tahoma">Tahoma</option>
+        <option value="Terminal">Terminal</option>
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Trebuchet MS">Trebuchet MS</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Webdings">Webdings</option>
+        <option value="Wingdings">Wingdings</option>
+      </select>
+
+      <select onchange="setStyle('fontSize', this.value)" class="custom-select p-1 border rounded text-sm bg-white text-black" title="Tamanho da fonte">
+        <option value="">Tamanho</option>
+        <option value="8px">8px</option>
+        <option value="10px">10px</option>
+        <option value="12px">12px</option>
+        <option value="14px">14px</option>
+        <option value="18px">18px</option>
+        <option value="24px">24px</option>
+        <option value="36px">36px</option>
+      </select>
+
+      <div class="flex items-center gap-1 ml-auto">
+        <i class="fas fa-minus-circle toolbar-icon" title="Diminuir zoom" onmousedown="event.preventDefault(); changeZoom(-0.1)"></i>
+        <span id="zoomDisplay" class="text-xs font-bold text-gray-600">100%</span>
+        <i class="fas fa-plus-circle toolbar-icon" title="Aumentar zoom" onmousedown="event.preventDefault(); changeZoom(0.1)"></i>
+      </div>
+
+    </div>
+
+    <div id="main-editor-window">
+      <div id="line-numbers">1</div>
+      <div id="editor" contenteditable="true" spellcheck="false" data-placeholder="comece a digitar…"></div>
+    </div>
+
+    <input type="file" id="fileInput" class="hidden" accept=".txt" onchange="loadFile(event)">
+
+    <div class="bg-gray-200 p-1 text-[10px] text-gray-600 flex justify-between px-4">
+      <span>Linhas: <span id="lineCount">1</span> | Palavras: <span id="wordCount">0</span></span>
+      <span>Autosave: On | Notepad Online</span>
+    </div>
+  </div>
+
+  <script>
+    const editor = document.getElementById('editor');
+    const lineNums = document.getElementById('line-numbers');
+    const zoomDisplay = document.getElementById('zoomDisplay');
+    const storageKey = "notepad_autosave_v1";
+    let currentZoom = 1;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedText = localStorage.getItem(storageKey);
+      if (savedText) editor.innerHTML = savedText;
+      updateAll();
+    });
+
+    function exec(command, value = null) {
+      try {
+        document.execCommand(command, false, value);
+      } catch (e) {}
+      editor.focus();
+      updateAll();
+    }
+
+    function setStyle(command, value) {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount || selection.isCollapsed) return;
+
+      const span = document.createElement('span');
+      span.style.fontSize = value;
+
+      const range = selection.getRangeAt(0).cloneRange();
+      try {
+        range.surroundContents(span);
+      } catch (e) {
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+      }
+
+      selection.removeAllRanges();
+      selection.addRange(range);
+      updateAll();
+    }
+
+    function copyToClipboard() {
+      const text = editor.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        alert("Copiado!");
+      });
+    }
+
+    function addLink() {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        alert("Selecione um texto antes de inserir o link.");
+        return;
+      }
+
+      const url = prompt("Digite a URL:");
+      if (url) exec('createLink', url);
+    }
+
+    function newDoc() {
+      if (confirm("Limpar documento?")) {
+        editor.innerHTML = "";
+        localStorage.removeItem(storageKey);
+        updateAll();
+      }
+    }
+
+    function loadFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        editor.innerText = e.target.result;
+        updateAll();
+      };
+      reader.readAsText(file);
+    }
+
+    function saveDoc() {
+      const text = editor.innerText;
+      const blob = new Blob([text], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.download = 'documento.txt';
+      a.href = URL.createObjectURL(blob);
+      a.click();
+    }
+
+    function changeZoom(val) {
+      currentZoom += val;
+      if (currentZoom < 0.5) currentZoom = 0.5;
+      editor.style.transform = `scale(${currentZoom})`;
+      lineNums.style.fontSize = (14 * currentZoom) + "px";
+      lineNums.style.width = (45 * currentZoom) + "px";
+      zoomDisplay.innerText = Math.round(currentZoom * 100) + "%";
+    }
+
+    function updateAll() {
+      const text = editor.innerText;
+      const lines = text.split(/\r\n|\r|\n/);
+
+      let lineHTML = '';
+      for (let i = 1; i <= lines.length; i++) lineHTML += i + '<br>';
+
+      lineNums.innerHTML = lineHTML;
+      document.getElementById('lineCount').innerText = lines.length;
+      document.getElementById('wordCount').innerText = text.trim() ? text.trim().split(/\s+/).length : 0;
+
+      localStorage.setItem(storageKey, editor.innerHTML);
+    }
+
+    editor.addEventListener('scroll', () => { lineNums.scrollTop = editor.scrollTop; });
+    editor.addEventListener('input', () => {
+      // ajuda o placeholder (alguns browsers inserem <br> ao limpar)
+      if (editor.innerHTML === "<br>") editor.innerHTML = "";
+      updateAll();
+    });
+
+    function toggleDark() {
+      document.body.classList.toggle('dark-theme');
+      const isDark = document.body.classList.contains('dark-theme');
+      editor.style.background = isDark ? "#2d2d2d" : "white";
+      editor.style.color = isDark ? "white" : "black";
+    }
+
+    function findReplace() {
+      const find = prompt("Localizar:");
+      const replace = prompt("Substituir:");
+      if (find) {
+        editor.innerHTML = editor.innerHTML.split(find).join(replace ?? "");
+        updateAll();
+      }
+    }
+
+    function toggleFull() {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+
+    // Se você ainda não implementou, deixa assim para não quebrar o menu
+    function toggleLines() {}
+function openMobileMenu() {
+  document.body.classList.add("no-scroll");
+  document.getElementById("mobileMenu").classList.add("open");
+  document.getElementById("mobileOverlay").classList.add("open");
+}
+
+
+function closeMobileMenu() {
+  document.body.classList.remove("no-scroll");
+  document.getElementById("mobileMenu").classList.remove("open");
+  document.getElementById("mobileOverlay").classList.remove("open");
+}
+
+
+    function clearAllText() {
+      if (!confirm("Tem certeza de que deseja limpar todo o texto?")) return;
+      editor.innerHTML = "";
+      localStorage.removeItem(storageKey);
+      updateAll();
+    }
+
+    // Quote/Code toggle (click again = remove)
+    function applyBlock(tagName) {
+      editor.focus();
+
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+
+      const anchorNode = sel.anchorNode;
+      const anchorEl = (anchorNode && anchorNode.nodeType === 1) ? anchorNode : anchorNode?.parentElement;
+      if (!anchorEl || !editor.contains(anchorEl)) return;
+
+      // Toggle OFF
+      const existing = anchorEl.closest(tagName);
+      if (existing && editor.contains(existing)) {
+        const parent = existing.parentNode;
+        while (existing.firstChild) parent.insertBefore(existing.firstChild, existing);
+        parent.removeChild(existing);
+        updateAll();
+        return;
+      }
+
+      // Toggle ON
+      if (sel.isCollapsed) return;
+
+      const range = sel.getRangeAt(0);
+      const wrapper = document.createElement(tagName);
+
+      try {
+        range.surroundContents(wrapper);
+      } catch (e) {
+        const contents = range.extractContents();
+        wrapper.appendChild(contents);
+        range.insertNode(wrapper);
+      }
+
+      sel.removeAllRanges();
+      const newRange = document.createRange();
+      newRange.selectNodeContents(wrapper);
+      sel.addRange(newRange);
+
+      updateAll();
+    }
+
+    // Link open inside contenteditable: Ctrl+Click (Windows) / Cmd+Click (Mac)
+    editor.addEventListener('click', (e) => {
+      const a = e.target.closest('a');
+      if (!a || !editor.contains(a)) return;
+
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const href = a.getAttribute('href');
+        if (href) window.open(href, '_blank', 'noopener,noreferrer');
+      }
+    });
+  </script>
+<!-- Mobile Overlay -->
+<div id="mobileOverlay" class="mobile-overlay" onclick="closeMobileMenu()"></div>
+
+<!-- Mobile Side Menu -->
+<div id="mobileMenu" class="mobile-menu">
+
+  <h4>Arquivo</h4>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    <button class="m-btn" onclick="newDoc(); closeMobileMenu();">
+      <i class="fas fa-file-alt"></i> Novo
+    </button>
+    <button class="m-btn" onclick="document.getElementById('fileInput').click(); closeMobileMenu();">
+      <i class="fas fa-folder-open"></i> Abrir
+    </button>
+    <button class="m-btn" onclick="saveDoc(); closeMobileMenu();">
+      <i class="fas fa-download"></i> Salvar
+    </button>
+    <button class="m-btn" onclick="window.print(); closeMobileMenu();">
+      <i class="fas fa-print"></i> Imprimir
+    </button>
+  </div>
+
+  <h4>Editar</h4>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    <button class="m-btn" onclick="exec('undo');">
+      <i class="fas fa-undo"></i> Desfazer
+    </button>
+    <button class="m-btn" onclick="exec('redo');">
+      <i class="fas fa-redo"></i> Refazer
+    </button>
+    <button class="m-btn" onclick="copyToClipboard();">
+      <i class="fas fa-copy"></i> Copiar
+    </button>
+<button class="m-btn" onclick="clearAllText(); closeMobileMenu();">
+  <i class="fas fa-trash"></i> Limpar Tudo
+</button>
+    <button class="m-btn" onclick="findReplace(); closeMobileMenu();">
+      <i class="fas fa-search"></i> Buscar
+    </button>
+  </div>
+
+  <h4>Exibir</h4>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    <button class="m-btn" onclick="toggleDark();">
+      <i class="fas fa-moon"></i> Modo Escuro
+    </button>
+    <button class="m-btn" onclick="changeZoom(0.1);">
+      <i class="fas fa-plus-circle"></i> Zoom +
+    </button>
+    <button class="m-btn" onclick="changeZoom(-0.1);">
+      <i class="fas fa-minus-circle"></i> Zoom -
+    </button>
+    <button class="m-btn" onclick="toggleFull(); closeMobileMenu();">
+      <i class="fas fa-expand"></i> Tela Cheia
+    </button>
+  </div>
+
+  <h4>Ajuda</h4>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    <button class="m-btn" onclick="alert('Online Notepad Pro v2.0 - 2026'); closeMobileMenu();">
+      <i class="fas fa-circle-info"></i> Sobre
+    </button>
+  </div>
+
+</div>
+
+</body>
+</html>
