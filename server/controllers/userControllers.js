@@ -1,4 +1,0 @@
-//API Controller Function to manage clerk user with database
-//http://localhost:4000/api/user/webhooks
-
-const clerkwebhooks = async (req, res) => {};
